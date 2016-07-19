@@ -175,16 +175,20 @@ sub put_cve_idx_cpe {
     foreach my $cpe_urn ( keys %$vuln_software ) {
         my $frozen;
 
-        $self->{'idx_cpe.db'}->get( $cpe_urn, $frozen );
+        my $cpe_isnew = $self->{'idx_cpe.db'}->get( $cpe_urn, $frozen );
+        #my $cvelist = nfreeze( $vuln_software->{$cpe_urn} );
+        #print "<<<$cpe_urn\t$cvelist>>>\n";
 
-        if ($frozen) {
+        if (!$cpe_isnew) {
+        
+            #print "In db:$cpe_urn\t$frozen\n";
             my $thawed = thaw($frozen);
             next unless ref $thawed eq 'ARRAY';
 
             my @vuln_list = ();
 
-            @vuln_list = @{ $self->{vuln_software}->{$cpe_urn} }
-              if ref $self->{vuln_software}->{$cpe_urn} eq 'ARRAY';
+            @vuln_list = @{ $vuln_software->{$cpe_urn} }
+              if ref $vuln_software->{$cpe_urn} eq 'ARRAY';
 
             # Combine previous results with these results
             $vuln_software->{$cpe_urn} = [ @vuln_list, @{$thawed} ];
