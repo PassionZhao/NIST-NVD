@@ -96,20 +96,34 @@ sub new {
 sub get_cve_for_cpe {
     my ( $self, %args ) = @_;
 
-    my $frozen;
+#	Get the hash handle of Berkeley DB for idx_cpe.db
+    my $db_hash    = $self->{'idx_cpe'};
+#	Query all the CPE entries matching with the input cpe string
+    my @match_cpes = grep { /$args{cpe}/ } keys %$db_hash;
+#	CVE_ID array to return
+    my $cve_ids    = [];
 
-    my $result = $self->{'idx_cpe.db'}->get( $args{cpe}, $frozen );
+    foreach (@match_cpes) {
+        my $frozen;
+        my $result = $self->{'idx_cpe.db'}->get( $_, $frozen );
 
-    my $cve_ids = [];
+        my $current_cve_ids = [];
 
-    unless ( $result == 0 ) {
-        return $cve_ids;
-    }
+        unless ( $result == 0 ) {
+            return $cve_ids;
+        }
 
-    $cve_ids = eval { thaw $frozen };
-    if (@$) {
-        carp "Storable::thaw had a major malfunction: $@";
-        return;
+        $current_cve_ids = eval { thaw $frozen };
+        if (@$) {
+            carp "Storable::thaw had a major malfunction: $@";
+            return;
+        }
+#	Put the retrieved CVE_ID array into the return array.
+#        push @$cve_ids, @$current_cve_ids;
+
+#        Merge the retrieved CVE_ID array into the return array with string order and duplicated CVE_IDs removed.
+	my @merged = sort keys %{{map {($_ => 1)} (@$cve_ids, @$current_cve_ids)}};
+	$cve_ids = \@merged;
     }
 
     return $cve_ids;

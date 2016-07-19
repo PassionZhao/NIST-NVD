@@ -11,9 +11,9 @@ use NIST::NVD::Update;
 
 my $filename = $ARGV[0] || 'nvdcve-2.0-recent.xml';
 
-my $store    = $ARGV[1] || 'DB_File';
+my $store = $ARGV[1] || 'DB_File';
 
-my $db_file = 'nvdcve-2.0.db';
+my $db_file = "$filename.db";    #'nvdcve-2.0.db';
 
 my $NVD_Updater = NIST::NVD::Update->new(
     store    => $store,
@@ -41,27 +41,41 @@ my $iter = 0;
 $|++;
 while ( my $line = <$nvdcve_fd> ) {
 
-    if ( $line =~ /(^.*?)<entry/ ) {
-        my $tail = $1;
-        $content .= $tail;
+    # Get the nvd header first
+    if ( !$header ) {
 
-        if ($header) {
+        if ( $line =~ /(^.*?)<entry/ ) {
+            my $tail = $1;
+            $content .= $tail;
+            $header = $content;
+            $line =~ s/^$tail//;
+            $content = $line;
+        }
+        else {
+            $content .= $line;
+        }
+    }
+    else {
+        # Match each CVE entry
+        if ( $line =~ /(^.*?<\/entry>)/ ) {
+            my $tail = $1;
+
+            $content .= $tail;
+
             $entry_body = $content;
             my $xml_string = $header . $entry_body . $footer;
             print(".");
             process_nvd($xml_string);
             $iter++;
+
+            $line =~ s/^$tail//;
+            $content = $line;
+
         }
         else {
-            $header = $content;
+            $content .= $line;
         }
 
-        $line =~ s/^$tail//;
-        $content = $line;
-
-    }
-    else {
-        $content .= $line;
     }
 }
 
@@ -69,7 +83,7 @@ print " $iter entries\n";
 
 print "Writing CPE URNs to disk...";
 
-$NVD_Updater->put_cpe([ keys %vuln_software ]);
+$NVD_Updater->put_cpe( [ keys %vuln_software ] );
 
 print "Done.\n";
 
